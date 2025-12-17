@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>平面圖事件紀錄系統</title>
+    <title>平面圖事件紀錄系統 (含備註功能)</title>
     <!-- 引入 Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- 引入 FontAwesome 圖示庫 -->
@@ -12,9 +12,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     
     <style>
-        body { background-color: #f4f6f9; height: 100vh; overflow: hidden; }
+        body { background-color: #f4f6f9; height: 100vh; overflow: hidden; font-family: "Microsoft JhengHei", sans-serif; }
         .main-container { height: 100%; display: flex; }
-        .sidebar { width: 350px; background: white; border-right: 1px solid #ddd; display: flex; flex-direction: column; padding: 15px; overflow-y: auto; }
+        .sidebar { width: 380px; background: white; border-right: 1px solid #ddd; display: flex; flex-direction: column; padding: 15px; overflow-y: auto; }
         .canvas-area { flex-grow: 1; background: #e9ecef; position: relative; display: flex; justify-content: center; align-items: center; overflow: auto; }
         
         .component-item {
@@ -28,7 +28,7 @@
             align-items: center;
             transition: all 0.2s;
         }
-        .component-item:hover { background: #f8f9fa; border-color: #0d6efd; }
+        .component-item:hover { background: #f8f9fa; border-color: #0d6efd; transform: translateX(5px); }
         .component-item i { font-size: 20px; margin-right: 10px; width: 30px; text-align: center; }
         
         #canvas-wrapper { 
@@ -39,15 +39,20 @@
         .log-item { font-size: 0.9rem; border-bottom: 1px solid #eee; padding: 8px 0; }
         .log-time { color: #888; font-size: 0.8rem; }
         
-        /* 拖曳時的樣式 */
-        .dragging { opacity: 0.5; }
+        /* 選取編輯區塊樣式 */
+        #edit-panel {
+            background-color: #fff3cd;
+            border: 1px solid #ffecb5;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none; /* 預設隱藏 */
+        }
     </style>
 </head>
 <body>
 
 <div class="main-container">
-    <!-- 左側與工具列 (依照需求改為右側邏輯，但為了版面通常左側放工具較順手，這裡將工具放左側，平面圖放右側，或依您需求調整) -->
-    <!-- 這裡依照您的描述：左側導入圖，右側編輯。但通常操作面板在側邊。以下配置：左側是大平面圖，右側是操作面板 -->
     
     <!-- 左側：平面圖區域 -->
     <div class="canvas-area" id="drop-area">
@@ -67,11 +72,28 @@
 
     <!-- 右側：控制與紀錄面板 -->
     <div class="sidebar shadow-sm">
-        <h5 class="border-bottom pb-2"><i class="fas fa-tools me-2"></i>工具箱</h5>
+        <h5 class="border-bottom pb-2"><i class="fas fa-tools me-2"></i>操作面板</h5>
         
+        <!-- 動態編輯區：只有選取物件時會出現 -->
+        <div id="edit-panel" class="shadow-sm">
+            <h6 class="text-warning-emphasis fw-bold"><i class="fas fa-pen-to-square"></i> 編輯選取項目</h6>
+            <div class="mb-2">
+                <label class="form-label mb-1">名稱/標籤</label>
+                <input type="text" class="form-control form-control-sm" id="editLabelInput">
+            </div>
+            <div class="mb-2">
+                <label class="form-label mb-1">詳細備註</label>
+                <textarea class="form-control form-control-sm" id="editNoteInput" rows="3" placeholder="請輸入備註..."></textarea>
+            </div>
+            <div class="d-flex justify-content-between">
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteActiveObject()">刪除物件</button>
+                <button class="btn btn-sm btn-dark" onclick="updateActiveObject()">更新資料</button>
+            </div>
+        </div>
+
         <!-- 搜尋功能 -->
         <div class="input-group mb-3">
-            <input type="text" id="searchInput" class="form-control" placeholder="搜尋關鍵字 (如: 漏水)...">
+            <input type="text" id="searchInput" class="form-control" placeholder="搜尋名稱或備註...">
             <button class="btn btn-outline-secondary" type="button" onclick="searchEvents()"><i class="fas fa-search"></i></button>
         </div>
 
@@ -108,16 +130,18 @@
                         <i class="fas fa-triangle-exclamation text-warning"></i> 警告/注意區域
                     </div>
                 </div>
-                <small class="text-muted mt-2 d-block">* 拖曳組件至左側平面圖</small>
+                <div class="alert alert-light mt-3 border">
+                    <small class="text-muted"><i class="fas fa-info-circle"></i> 拖曳組件至圖上後，點擊該組件即可編輯詳細備註。</small>
+                </div>
             </div>
 
             <!-- 自定義組件 -->
             <div class="tab-pane fade" id="custom">
-                <div class="mb-3">
-                    <label class="form-label">事件名稱/標籤</label>
-                    <input type="text" class="form-control" id="customLabel" placeholder="例如：202會議室牆壁裂痕">
+                <div class="mb-2">
+                    <label class="form-label">事件名稱</label>
+                    <input type="text" class="form-control" id="customLabel" placeholder="例如：202會議室">
                 </div>
-                <div class="mb-3">
+                <div class="mb-2">
                     <label class="form-label">選擇圖示</label>
                     <select class="form-select" id="customIcon">
                         <option value="fa-circle-exclamation">❗ 驚嘆號</option>
@@ -127,9 +151,13 @@
                         <option value="fa-comment-dots">💬 文字註記</option>
                     </select>
                 </div>
-                <div class="mb-3">
+                <div class="mb-2">
                     <label class="form-label">顏色</label>
-                    <input type="color" class="form-control form-control-color" id="customColor" value="#ff0000">
+                    <input type="color" class="form-control form-control-color w-100" id="customColor" value="#ff0000">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">預設備註</label>
+                    <textarea class="form-control" id="customNote" rows="2" placeholder="可在此先輸入備註內容"></textarea>
                 </div>
                 <button class="btn btn-dark w-100" onclick="addCustomComponent()">新增至畫面</button>
             </div>
@@ -152,69 +180,11 @@
     const canvas = new fabric.Canvas('c');
     let logData = []; // 儲存歷史紀錄
 
-    // 1. 處理平面圖匯入 (轉為 Base64 以便存檔)
-    document.getElementById('imgLoader').addEventListener('change', function (e) {
-        const reader = new FileReader();
-        reader.onload = function (event) {
-            const imgObj = new Image();
-            imgObj.src = event.target.result;
-            imgObj.onload = function () {
-                const imgInstance = new fabric.Image(imgObj);
-                // 調整畫布大小適應圖片 (最大限制)
-                const maxWidth = document.querySelector('.canvas-area').clientWidth - 50;
-                const scale = maxWidth / imgInstance.width;
-                
-                if (imgInstance.width > maxWidth) {
-                    imgInstance.scale(scale);
-                    canvas.setWidth(imgInstance.width * scale);
-                    canvas.setHeight(imgInstance.height * scale);
-                } else {
-                    canvas.setWidth(imgInstance.width);
-                    canvas.setHeight(imgInstance.height);
-                }
-                
-                canvas.setBackgroundImage(imgInstance, canvas.renderAll.bind(canvas), {
-                   scaleX: imgInstance.width > maxWidth ? scale : 1,
-                   scaleY: imgInstance.width > maxWidth ? scale : 1
-                });
-                
-                addLog("系統", "已匯入平面圖");
-            }
-        }
-        reader.readAsDataURL(e.target.files[0]);
-    });
-
-    // 2. 拖曳功能實作
-    function dragStart(e) {
-        e.dataTransfer.setData('icon', e.target.dataset.icon);
-        e.dataTransfer.setData('color', e.target.dataset.color);
-        e.dataTransfer.setData('label', e.target.dataset.label);
-    }
-
-    const dropArea = document.getElementById('drop-area');
-    dropArea.addEventListener('dragover', (e) => { e.preventDefault(); });
-    dropArea.addEventListener('drop', (e) => {
-        e.preventDefault();
-        const iconClass = e.dataTransfer.getData('icon');
-        const color = e.dataTransfer.getData('color');
-        const label = e.dataTransfer.getData('label');
-
-        if (iconClass) {
-            // 取得滑鼠相對於 Canvas 的座標
-            const pointer = canvas.getPointer(e);
-            addComponentToCanvas(iconClass, color, label, pointer.x, pointer.y);
-        }
-    });
-
-    // 將組件加到 Canvas 的核心函式
-    function addComponentToCanvas(iconClass, color, labelText, left, top) {
-        // 使用 FontAwesome 的 Unicode (需要知道對應碼，這裡簡化使用 Text 替代或需查詢表)
-        // 為了通用性，我們建立一個包含文字和圓圈的群組
-        
-        // 取得 FontAwesome 的 unicode (簡化處理：用 HTML 元素取得內容後繪製，或直接用文字)
-        // 這裡採用 Fabric Text 顯示圖示 (需確保字型載入)
-        // 為了簡單且跨瀏覽器，我們用圓形+文字標籤代表
-        
+    // ==========================================
+    // 1. 核心邏輯：新增物件到畫布
+    // ==========================================
+    function addComponentToCanvas(iconClass, color, labelText, left, top, noteContent = "") {
+        // 圓圈背景
         const circle = new fabric.Circle({
             radius: 15,
             fill: color,
@@ -222,6 +192,7 @@
             stroke: 'white', strokeWidth: 2
         });
 
+        // 文字標籤
         const text = new fabric.Text(labelText, {
             fontSize: 14,
             originX: 'center', originY: 'top',
@@ -238,28 +209,174 @@
             hasControls: true
         });
         
-        // 加入自定義屬性供搜尋用
+        // **關鍵：綁定自定義屬性**
         group.customLabel = labelText;
         group.customType = iconClass;
+        group.customNote = noteContent; // 儲存備註
         group.timestamp = new Date().toLocaleString();
 
         canvas.add(group);
         canvas.setActiveObject(group);
         
-        addLog("新增", `添加了 [${labelText}]`);
+        let logMsg = `添加了 [${labelText}]`;
+        if(noteContent) logMsg += ` (備註: ${noteContent})`;
+        addLog("新增", logMsg);
     }
 
+    // ==========================================
+    // 2. 拖曳功能
+    // ==========================================
+    function dragStart(e) {
+        e.dataTransfer.setData('icon', e.target.dataset.icon);
+        e.dataTransfer.setData('color', e.target.dataset.color);
+        e.dataTransfer.setData('label', e.target.dataset.label);
+    }
+
+    const dropArea = document.getElementById('drop-area');
+    dropArea.addEventListener('dragover', (e) => { e.preventDefault(); });
+    dropArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const iconClass = e.dataTransfer.getData('icon');
+        const color = e.dataTransfer.getData('color');
+        const label = e.dataTransfer.getData('label');
+
+        if (iconClass) {
+            const pointer = canvas.getPointer(e);
+            addComponentToCanvas(iconClass, color, label, pointer.x, pointer.y);
+        }
+    });
+
+    // ==========================================
     // 3. 自定義組件新增
+    // ==========================================
     function addCustomComponent() {
         const label = document.getElementById('customLabel').value || "自定義標記";
         const icon = document.getElementById('customIcon').value;
         const color = document.getElementById('customColor').value;
+        const note = document.getElementById('customNote').value; // 取得預設備註
         
-        // 預設放在畫布中間
-        addComponentToCanvas(icon, color, label, canvas.width / 2, canvas.height / 2);
+        addComponentToCanvas(icon, color, label, canvas.width / 2, canvas.height / 2, note);
+        
+        // 清空輸入框
+        document.getElementById('customLabel').value = "";
+        document.getElementById('customNote').value = "";
     }
 
-    // 4. 紀錄系統
+    // ==========================================
+    // 4. 選取物件後的編輯邏輯 (新增部分)
+    // ==========================================
+    const editPanel = document.getElementById('edit-panel');
+    const editLabelInput = document.getElementById('editLabelInput');
+    const editNoteInput = document.getElementById('editNoteInput');
+
+    // 當物件被選取時
+    function onSelectionCreated() {
+        const activeObj = canvas.getActiveObject();
+        if (activeObj && activeObj.type === 'group') {
+            // 將資料帶入編輯框
+            editLabelInput.value = activeObj.customLabel || "";
+            editNoteInput.value = activeObj.customNote || "";
+            editPanel.style.display = 'block'; // 顯示編輯區
+        }
+    }
+
+    // 當選取取消時
+    function onSelectionCleared() {
+        editPanel.style.display = 'none'; // 隱藏編輯區
+    }
+
+    canvas.on('selection:created', onSelectionCreated);
+    canvas.on('selection:updated', onSelectionCreated);
+    canvas.on('selection:cleared', onSelectionCleared);
+
+    // 更新物件資料按鈕
+    function updateActiveObject() {
+        const activeObj = canvas.getActiveObject();
+        if (activeObj) {
+            const oldLabel = activeObj.customLabel;
+            const newLabel = editLabelInput.value;
+            const newNote = editNoteInput.value;
+
+            // 更新屬性
+            activeObj.customLabel = newLabel;
+            activeObj.customNote = newNote;
+
+            // 更新畫布上的文字顯示 (群組中的第二個物件是文字)
+            // item(1) 是文字物件
+            if (activeObj.item(1)) {
+                activeObj.item(1).set('text', newLabel);
+            }
+
+            canvas.requestRenderAll();
+            addLog("更新", `更新了 [${oldLabel}] 的資料 (備註: ${newNote})`);
+            
+            // 短暫提示更新成功 (可選)
+            alert("更新成功！");
+        }
+    }
+
+    // 刪除物件按鈕
+    function deleteActiveObject() {
+        const activeObj = canvas.getActiveObject();
+        if (activeObj) {
+            canvas.remove(activeObj);
+            canvas.discardActiveObject();
+            editPanel.style.display = 'none';
+            addLog("刪除", `移除了 [${activeObj.customLabel}]`);
+        }
+    }
+
+    // ==========================================
+    // 5. 搜尋功能 (包含備註搜尋)
+    // ==========================================
+    function searchEvents() {
+        const keyword = document.getElementById('searchInput').value.trim();
+        const objects = canvas.getObjects();
+        canvas.discardActiveObject();
+        editPanel.style.display = 'none';
+
+        if (keyword === "") {
+            objects.forEach(obj => {
+                obj.set('opacity', 1);
+                if(obj.item(0)) {
+                    obj.item(0).set('stroke', 'white');
+                    obj.item(0).set('strokeWidth', 2);
+                }
+            });
+        } else {
+            objects.forEach(obj => {
+                // 搜尋名稱 OR 備註
+                const matchLabel = obj.customLabel && obj.customLabel.includes(keyword);
+                const matchNote = obj.customNote && obj.customNote.includes(keyword);
+
+                if (matchLabel || matchNote) {
+                    obj.set('opacity', 1);
+                    if(obj.item(0)) {
+                        obj.item(0).set('stroke', 'red');
+                        obj.item(0).set('strokeWidth', 5);
+                    }
+                } else {
+                    obj.set('opacity', 0.2);
+                    if(obj.item(0)) {
+                        obj.item(0).set('stroke', 'white');
+                        obj.item(0).set('strokeWidth', 2);
+                    }
+                }
+            });
+        }
+        canvas.requestRenderAll();
+        renderLogs(keyword);
+    }
+    
+    document.getElementById('searchInput').addEventListener('keyup', function(e){
+        if(e.key === 'Enter') searchEvents();
+    });
+
+    // ==========================================
+    // 6. 其他基礎功能 (匯入圖片、紀錄、存檔)
+    // ==========================================
+    
+    // 紀錄功能
     function addLog(action, desc) {
         const time = new Date().toLocaleString();
         logData.push({ time, action, desc });
@@ -269,7 +386,6 @@
     function renderLogs(filterText = "") {
         const list = document.getElementById('logList');
         list.innerHTML = "";
-        
         const filtered = logData.filter(log => 
             filterText === "" || log.desc.includes(filterText)
         );
@@ -279,7 +395,6 @@
             return;
         }
 
-        // 反轉顯示，最新的在上面
         [...filtered].reverse().forEach(log => {
             const item = document.createElement('div');
             item.className = 'log-item';
@@ -288,102 +403,58 @@
                     <strong>${log.action}</strong>
                     <span class="log-time">${log.time}</span>
                 </div>
-                <div>${log.desc}</div>
+                <div class="text-break">${log.desc}</div>
             `;
             list.appendChild(item);
         });
     }
 
-    // 5. 搜尋與連貫顯示功能
-    function searchEvents() {
-        const keyword = document.getElementById('searchInput').value.trim();
-        
-        // 1. 搜尋 Canvas 物件並高亮
-        const objects = canvas.getObjects();
-        
-        canvas.discardActiveObject(); // 取消當前選取
-        
-        if (keyword === "") {
-            // 清除搜尋狀態 (還原透明度)
-            objects.forEach(obj => {
-                obj.set('opacity', 1);
-                // 還原外框
-                if(obj.item(0)) obj.item(0).set('stroke', 'white'); 
-            });
-        } else {
-            // 執行搜尋
-            const sel = new fabric.ActiveSelection([], { canvas: canvas });
-            
-            objects.forEach(obj => {
-                // 檢查 label 是否包含關鍵字
-                if (obj.customLabel && obj.customLabel.includes(keyword)) {
-                    obj.set('opacity', 1);
-                    // 高亮顯示 (把圓圈變粗框)
-                    if(obj.item(0)) obj.item(0).set('stroke', 'red'); 
-                    if(obj.item(0)) obj.item(0).set('strokeWidth', 4);
+    // 匯入圖片
+    document.getElementById('imgLoader').addEventListener('change', function (e) {
+        const reader = new FileReader();
+        reader.onload = function (event) {
+            const imgObj = new Image();
+            imgObj.src = event.target.result;
+            imgObj.onload = function () {
+                const imgInstance = new fabric.Image(imgObj);
+                const maxWidth = document.querySelector('.canvas-area').clientWidth - 50;
+                const scale = maxWidth / imgInstance.width;
+                
+                if (imgInstance.width > maxWidth) {
+                    imgInstance.scale(scale);
+                    canvas.setWidth(imgInstance.width * scale);
+                    canvas.setHeight(imgInstance.height * scale);
                 } else {
-                    // 非搜尋結果變淡
-                    obj.set('opacity', 0.2);
-                    if(obj.item(0)) obj.item(0).set('stroke', 'white');
-                    if(obj.item(0)) obj.item(0).set('strokeWidth', 2);
+                    canvas.setWidth(imgInstance.width);
+                    canvas.setHeight(imgInstance.height);
                 }
-            });
-        }
-        canvas.requestRenderAll();
-        
-        // 2. 過濾右側紀錄
-        renderLogs(keyword);
-    }
-    
-    // 監聽鍵盤 Enter 搜尋
-    document.getElementById('searchInput').addEventListener('keyup', function(e){
-        if(e.key === 'Enter') searchEvents();
-    });
-
-    // 6. 監聽物件修改事件 (移動、刪除)
-    canvas.on('object:modified', function(e) {
-        const obj = e.target;
-        addLog("移動", `調整了 [${obj.customLabel}] 的位置`);
-    });
-
-    // 刪除功能 (按 Delete 鍵)
-    window.addEventListener('keydown', function(e) {
-        if (e.key === 'Delete' || e.key === 'Backspace') {
-            const activeObjects = canvas.getActiveObjects();
-            if (activeObjects.length) {
-                canvas.discardActiveObject();
-                activeObjects.forEach(function(obj) {
-                    canvas.remove(obj);
-                    addLog("刪除", `移除了 [${obj.customLabel}]`);
+                
+                canvas.setBackgroundImage(imgInstance, canvas.renderAll.bind(canvas), {
+                   scaleX: imgInstance.width > maxWidth ? scale : 1,
+                   scaleY: imgInstance.width > maxWidth ? scale : 1
                 });
+                addLog("系統", "已匯入平面圖");
             }
         }
+        reader.readAsDataURL(e.target.files[0]);
     });
 
-    // ==========================================
-    // 7. 另存網頁核心邏輯 (Quine: Self-replicating)
-    // ==========================================
+    // 另存網頁功能 (包含備註欄位)
     function saveSystem() {
-        // 1. 取得當前 Canvas 狀態 (包含背景圖 Base64)
-        const canvasJson = JSON.stringify(canvas.toJSON(['customLabel', 'customType', 'timestamp']));
+        // 重要：在 toJSON 中加入 'customNote' 以便存檔
+        const canvasJson = JSON.stringify(canvas.toJSON(['customLabel', 'customType', 'customNote', 'timestamp']));
         
-        // 2. 準備要儲存的資料物件
         const saveData = {
             canvas: canvasJson,
             logs: logData
         };
 
-        // 3. 讀取當前 HTML 原始碼
         let htmlContent = document.documentElement.outerHTML;
-
-        // 4. 將資料注入到 <script id="saved-data"> 標籤中
-        // 我們使用正則表達式或字串替換來更新該區塊的內容
         const dataScriptPattern = /<script id="saved-data" type="application\/json">([\s\S]*?)<\/script>/;
         const newDataScript = `<script id="saved-data" type="application/json">${JSON.stringify(saveData)}<\/script>`;
         
         htmlContent = htmlContent.replace(dataScriptPattern, newDataScript);
 
-        // 5. 建立 Blob 並下載
         const blob = new Blob([htmlContent], {type: 'text/html'});
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -397,22 +468,16 @@
         addLog("系統", "已匯出網頁檔案");
     }
 
-    // ==========================================
-    // 8. 網頁載入時的資料復原 (如果有存檔資料)
-    // ==========================================
+    // 讀取存檔
     window.onload = function() {
         const dataScript = document.getElementById('saved-data');
         if (dataScript && dataScript.textContent.trim() !== "") {
             try {
                 const savedData = JSON.parse(dataScript.textContent);
-                
-                // 復原紀錄
                 if(savedData.logs) {
                     logData = savedData.logs;
                     renderLogs();
                 }
-
-                // 復原 Canvas
                 if(savedData.canvas) {
                     canvas.loadFromJSON(savedData.canvas, function() {
                         canvas.renderAll();
@@ -424,6 +489,15 @@
             }
         }
     };
+    
+    // 刪除快捷鍵
+    window.addEventListener('keydown', function(e) {
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+            if(document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+                deleteActiveObject();
+            }
+        }
+    });
 
 </script>
 <!-- Bootstrap JS -->

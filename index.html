@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>平面圖事件紀錄系統 (修正版)</title>
+    <title>平面圖事件紀錄系統 (文字樣式客製版)</title>
     <!-- 引入 Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- 引入 FontAwesome 圖示庫 -->
@@ -17,11 +17,10 @@
         .sidebar { width: 380px; background: white; border-right: 1px solid #ddd; display: flex; flex-direction: column; padding: 15px; overflow-y: auto; }
         .canvas-area { flex-grow: 1; background: #e9ecef; position: relative; display: flex; justify-content: center; align-items: center; overflow: auto; }
         
-        /* 讓 Canvas 容器置中且有陰影 */
         #canvas-wrapper { 
             box-shadow: 0 0 20px rgba(0,0,0,0.1); 
             background: white; 
-            margin: auto; /* 確保在 flex 容器中置中 */
+            margin: auto; 
         }
 
         .component-item {
@@ -41,6 +40,7 @@
         .log-item { font-size: 0.9rem; border-bottom: 1px solid #eee; padding: 8px 0; }
         .log-time { color: #888; font-size: 0.8rem; }
         
+        /* 編輯面板樣式 */
         #edit-panel {
             background-color: #fff3cd;
             border: 1px solid #ffecb5;
@@ -89,13 +89,29 @@
     <div class="sidebar shadow-sm">
         <h5 class="border-bottom pb-2"><i class="fas fa-tools me-2"></i>操作面板</h5>
         
-        <!-- 動態編輯區 -->
+        <!-- 動態編輯區 (新增樣式控制) -->
         <div id="edit-panel" class="shadow-sm">
             <h6 class="text-warning-emphasis fw-bold"><i class="fas fa-pen-to-square"></i> 編輯選取項目</h6>
             <div class="mb-2">
                 <label class="form-label mb-1">名稱/標籤</label>
                 <input type="text" class="form-control form-control-sm" id="editLabelInput">
             </div>
+            
+            <!-- 新增：文字樣式控制 -->
+            <div class="row g-2 mb-2">
+                <div class="col-6">
+                    <label class="form-label mb-1">文字顏色</label>
+                    <input type="color" class="form-control form-control-color w-100" id="editTextColor" value="#333333">
+                </div>
+                <div class="col-6">
+                    <label class="form-label mb-1">文字粗細</label>
+                    <select class="form-select form-select-sm" id="editTextWeight">
+                        <option value="normal">正常</option>
+                        <option value="bold">粗體</option>
+                    </select>
+                </div>
+            </div>
+
             <div class="mb-2">
                 <label class="form-label mb-1">詳細備註</label>
                 <textarea class="form-control form-control-sm" id="editNoteInput" rows="3" placeholder="請輸入備註..."></textarea>
@@ -178,7 +194,7 @@
                 </div>
             </div>
 
-            <!-- 自定義組件 -->
+            <!-- 自定義組件 (新增樣式輸入) -->
             <div class="tab-pane fade" id="custom">
                 <div class="mb-2">
                     <label class="form-label">事件名稱</label>
@@ -194,10 +210,26 @@
                         <option value="fa-comment-dots">💬 文字註記</option>
                     </select>
                 </div>
-                <div class="mb-2">
-                    <label class="form-label">顏色</label>
-                    <input type="color" class="form-control form-control-color w-100" id="customColor" value="#ff0000">
+                
+                <!-- 新增：圖示與文字外觀 -->
+                <div class="row g-2 mb-2">
+                    <div class="col-4">
+                        <label class="form-label mb-1" style="font-size:0.8rem">圖示顏色</label>
+                        <input type="color" class="form-control form-control-color w-100" id="customColor" value="#ff0000">
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label mb-1" style="font-size:0.8rem">文字顏色</label>
+                        <input type="color" class="form-control form-control-color w-100" id="customTextColor" value="#333333">
+                    </div>
+                    <div class="col-4">
+                        <label class="form-label mb-1" style="font-size:0.8rem">文字粗細</label>
+                        <select class="form-select form-select-sm" id="customTextWeight">
+                            <option value="normal">正常</option>
+                            <option value="bold">粗體</option>
+                        </select>
+                    </div>
                 </div>
+
                 <div class="mb-3">
                     <label class="form-label">預設備註</label>
                     <textarea class="form-control" id="customNote" rows="2" placeholder="可在此先輸入備註內容"></textarea>
@@ -219,21 +251,19 @@
 <script id="saved-data" type="application/json"></script>
 
 <script>
-    // 確保 DOM 載入後才執行，避免找不到元素
     document.addEventListener('DOMContentLoaded', function() {
         
-        // 初始化 Canvas
         const canvas = new fabric.Canvas('c');
         let logData = []; 
         const STANDARD_TYPES = ['fa-snowflake', 'fa-wind', 'fa-droplet', 'fa-bug', 'fa-triangle-exclamation'];
 
         // ==========================================
-        // 1. 圖片匯入邏輯 (已修正)
+        // 1. 圖片匯入
         // ==========================================
         const imgLoader = document.getElementById('imgLoader');
         if (imgLoader) {
             imgLoader.addEventListener('change', function (e) {
-                if (!e.target.files[0]) return; // 沒選檔案則跳出
+                if (!e.target.files[0]) return; 
 
                 const reader = new FileReader();
                 reader.onload = function (event) {
@@ -241,18 +271,14 @@
                     imgObj.src = event.target.result;
                     
                     imgObj.onload = function () {
-                        // 使用原生的 imgObj.width 確保數值正確
                         const area = document.querySelector('.canvas-area');
-                        // 確保取得有效的寬度，若還沒渲染則給預設值
                         const maxWidth = (area && area.clientWidth > 0) ? area.clientWidth - 50 : 800;
 
-                        // 計算縮放比例
                         let scale = 1;
                         if (imgObj.width > maxWidth) {
                             scale = maxWidth / imgObj.width;
                         }
 
-                        // 建立 Fabric 圖片物件並直接應用縮放
                         const imgInstance = new fabric.Image(imgObj, {
                             scaleX: scale,
                             scaleY: scale,
@@ -260,23 +286,20 @@
                             originY: 'top'
                         });
 
-                        // 調整畫布大小以適應圖片
                         canvas.setWidth(imgObj.width * scale);
                         canvas.setHeight(imgObj.height * scale);
-
-                        // 設定為背景
                         canvas.setBackgroundImage(imgInstance, canvas.renderAll.bind(canvas));
                         
                         addLog("系統", "已匯入平面圖");
                     }
                 }
                 reader.readAsDataURL(e.target.files[0]);
-                e.target.value = ''; // 清空 input，允許重複選擇同一個檔案
+                e.target.value = ''; 
             });
         }
 
         // ==========================================
-        // 2. 篩選顯示邏輯
+        // 2. 篩選顯示
         // ==========================================
         document.querySelectorAll('.filter-cb').forEach(cb => {
             cb.addEventListener('change', updateVisibility);
@@ -313,9 +336,8 @@
         }
 
         // ==========================================
-        // 3. 拖曳與新增組件
+        // 3. 拖曳與新增 (支援文字樣式參數)
         // ==========================================
-        // 綁定拖曳開始事件 (在 HTML ondragstart 呼叫)
         window.dragStart = function(e) {
             e.dataTransfer.setData('icon', e.target.dataset.icon);
             e.dataTransfer.setData('color', e.target.dataset.color);
@@ -332,11 +354,13 @@
 
             if (iconClass) {
                 const pointer = canvas.getPointer(e);
-                addComponentToCanvas(iconClass, color, label, pointer.x, pointer.y);
+                // 拖曳預設為黑色正常字體
+                addComponentToCanvas(iconClass, color, label, pointer.x, pointer.y, "", "#333333", "normal");
             }
         });
 
-        function addComponentToCanvas(iconClass, color, labelText, left, top, noteContent = "") {
+        // 核心新增函式：加入 textColor 與 fontWeight 參數
+        function addComponentToCanvas(iconClass, color, labelText, left, top, noteContent = "", textColor = "#333333", fontWeight = "normal") {
             ensureTypeIsVisible(iconClass);
 
             const circle = new fabric.Circle({
@@ -350,7 +374,8 @@
                 fontSize: 14,
                 originX: 'center', originY: 'top',
                 top: 20,
-                fill: '#333',
+                fill: textColor,      // 使用參數
+                fontWeight: fontWeight, // 使用參數
                 fontFamily: 'Microsoft JhengHei'
             });
 
@@ -374,31 +399,43 @@
             addLog("新增", logMsg);
         }
 
-        // 綁定自定義按鈕 (在 HTML onclick 呼叫)
+        // 自定義組件：讀取使用者設定的樣式
         window.addCustomComponent = function() {
             const label = document.getElementById('customLabel').value || "自定義標記";
             const icon = document.getElementById('customIcon').value;
             const color = document.getElementById('customColor').value;
             const note = document.getElementById('customNote').value;
+            const textColor = document.getElementById('customTextColor').value;
+            const textWeight = document.getElementById('customTextWeight').value;
             
-            addComponentToCanvas(icon, color, label, canvas.width / 2, canvas.height / 2, note);
+            addComponentToCanvas(icon, color, label, canvas.width / 2, canvas.height / 2, note, textColor, textWeight);
             
+            // 重置輸入
             document.getElementById('customLabel').value = "";
             document.getElementById('customNote').value = "";
         }
 
         // ==========================================
-        // 4. 編輯與刪除功能
+        // 4. 編輯功能 (支援文字樣式修改)
         // ==========================================
         const editPanel = document.getElementById('edit-panel');
         const editLabelInput = document.getElementById('editLabelInput');
         const editNoteInput = document.getElementById('editNoteInput');
+        const editTextColor = document.getElementById('editTextColor');
+        const editTextWeight = document.getElementById('editTextWeight');
 
         function onSelectionCreated() {
             const activeObj = canvas.getActiveObject();
             if (activeObj && activeObj.type === 'group' && activeObj.visible) {
                 editLabelInput.value = activeObj.customLabel || "";
                 editNoteInput.value = activeObj.customNote || "";
+                
+                // 取得群組中的文字物件屬性 (item(1) 是文字)
+                if (activeObj.item(1)) {
+                    editTextColor.value = activeObj.item(1).fill || "#333333";
+                    editTextWeight.value = activeObj.item(1).fontWeight || "normal";
+                }
+
                 editPanel.style.display = 'block';
             } else {
                 editPanel.style.display = 'none';
@@ -413,18 +450,24 @@
         canvas.on('selection:updated', onSelectionCreated);
         canvas.on('selection:cleared', onSelectionCleared);
 
+        // 更新按鈕：將面板的值寫回物件
         window.updateActiveObject = function() {
             const activeObj = canvas.getActiveObject();
             if (activeObj) {
                 const oldLabel = activeObj.customLabel;
                 const newLabel = editLabelInput.value;
                 const newNote = editNoteInput.value;
+                const newColor = editTextColor.value;
+                const newWeight = editTextWeight.value;
 
                 activeObj.customLabel = newLabel;
                 activeObj.customNote = newNote;
 
+                // 更新文字顯示
                 if (activeObj.item(1)) {
                     activeObj.item(1).set('text', newLabel);
+                    activeObj.item(1).set('fill', newColor);
+                    activeObj.item(1).set('fontWeight', newWeight);
                 }
 
                 canvas.requestRenderAll();
@@ -443,7 +486,6 @@
             }
         }
 
-        // 鍵盤刪除
         window.addEventListener('keydown', function(e) {
             if (e.key === 'Delete' || e.key === 'Backspace') {
                 if(document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
@@ -462,7 +504,6 @@
             editPanel.style.display = 'none';
 
             objects.forEach(obj => {
-                // 若被篩選隱藏，則忽略
                 if (!obj.visible) return;
 
                 if (keyword === "") {
@@ -499,7 +540,7 @@
         });
 
         // ==========================================
-        // 6. 紀錄與存檔系統
+        // 6. 紀錄與存檔
         // ==========================================
         function addLog(action, desc) {
             const time = new Date().toLocaleString();
@@ -534,6 +575,7 @@
         }
 
         window.saveSystem = function() {
+            // Fabric.js 的 toJSON 會自動儲存文字的 fill 和 fontWeight 屬性，不需額外處理
             const canvasJson = JSON.stringify(canvas.toJSON(['customLabel', 'customType', 'customNote', 'timestamp']));
             
             const saveData = {
@@ -545,7 +587,6 @@
             const dataScriptPattern = /<script id="saved-data" type="application\/json">([\s\S]*?)<\/script>/;
             const newDataScript = `<script id="saved-data" type="application/json">${JSON.stringify(saveData)}<\/script>`;
             
-            // 如果原本沒有 saved-data script，則建立失敗，因此上面 HTML 一定要保留該標籤
             htmlContent = htmlContent.replace(dataScriptPattern, newDataScript);
 
             const blob = new Blob([htmlContent], {type: 'text/html'});
@@ -561,7 +602,7 @@
             addLog("系統", "已匯出網頁檔案");
         }
 
-        // 讀取存檔 (立即執行)
+        // 讀取存檔
         const dataScript = document.getElementById('saved-data');
         if (dataScript && dataScript.textContent.trim() !== "") {
             try {
@@ -581,7 +622,7 @@
             }
         }
 
-    }); // DOMContentLoaded 結束
+    });
 </script>
 <!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

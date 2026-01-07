@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>平面圖事件紀錄系統 (PDF匯出版)</title>
+    <title>平面圖事件紀錄系統 (樣式優化版)</title>
     <!-- 引入 Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- 引入 FontAwesome 圖示庫 -->
@@ -67,12 +67,16 @@
         }
         .form-check-label { font-size: 0.9rem; cursor: pointer; }
 
+        /* 自定義顏色類別 (Bootstrap 擴充) */
+        .text-orange { color: #fd7e14 !important; }
+        .text-dark-gray { color: #343a40 !important; }
+
         /* PDF 匯出時的隱藏容器樣式 */
         #pdf-temp-container {
             position: fixed;
             top: -9999px;
             left: -9999px;
-            width: 800px; /* A4 比例寬度參考 */
+            width: 800px;
             background: white;
             padding: 40px;
             border: 1px solid #000;
@@ -127,8 +131,8 @@
                 <div class="col-6">
                     <label class="form-label mb-1">文字粗細</label>
                     <select class="form-select form-select-sm" id="editTextWeight">
-                        <option value="normal">正常</option>
                         <option value="bold">粗體</option>
+                        <option value="normal">正常</option>
                     </select>
                 </div>
             </div>
@@ -147,25 +151,26 @@
         <div class="filter-section">
             <h6 class="fw-bold mb-2"><i class="fas fa-filter"></i> 顯示篩選 (可多選)</h6>
             <div class="filter-grid" id="visibilityControls">
+                <!-- 更新顏色 class 與 value 對應 -->
                 <div class="form-check">
                     <input class="form-check-input filter-cb" type="checkbox" value="fa-snowflake" checked id="cb-cool">
-                    <label class="form-check-label" for="cb-cool"><i class="fas fa-snowflake text-info"></i> 冷氣機</label>
+                    <label class="form-check-label" for="cb-cool"><i class="fas fa-snowflake text-success"></i> 冷氣機 (綠)</label>
                 </div>
                 <div class="form-check">
                     <input class="form-check-input filter-cb" type="checkbox" value="fa-wind" checked id="cb-wind">
-                    <label class="form-check-label" for="cb-wind"><i class="fas fa-wind text-secondary"></i> 除濕機</label>
+                    <label class="form-check-label" for="cb-wind"><i class="fas fa-wind text-orange"></i> 除濕機 (橘)</label>
                 </div>
                 <div class="form-check">
                     <input class="form-check-input filter-cb" type="checkbox" value="fa-droplet" checked id="cb-drop">
-                    <label class="form-check-label" for="cb-drop"><i class="fas fa-droplet text-primary"></i> 漏水點</label>
+                    <label class="form-check-label" for="cb-drop"><i class="fas fa-droplet text-danger"></i> 漏水點 (紅)</label>
                 </div>
                 <div class="form-check">
                     <input class="form-check-input filter-cb" type="checkbox" value="fa-bug" checked id="cb-bug">
-                    <label class="form-check-label" for="cb-bug"><i class="fas fa-bug text-danger"></i> 蟲鼠害</label>
+                    <label class="form-check-label" for="cb-bug"><i class="fas fa-bug text-dark-gray"></i> 鼠患 (灰)</label>
                 </div>
                 <div class="form-check">
                     <input class="form-check-input filter-cb" type="checkbox" value="fa-triangle-exclamation" checked id="cb-warn">
-                    <label class="form-check-label" for="cb-warn"><i class="fas fa-triangle-exclamation text-warning"></i> 注意</label>
+                    <label class="form-check-label" for="cb-warn"><i class="fas fa-triangle-exclamation text-warning"></i> 注意 (黃)</label>
                 </div>
                 <div class="form-check">
                     <input class="form-check-input filter-cb" type="checkbox" value="other" checked id="cb-other">
@@ -194,21 +199,26 @@
         </ul>
 
         <div class="tab-content" id="myTabContent">
-            <!-- 預設組件 -->
+            <!-- 預設組件：顏色已更新 -->
             <div class="tab-pane fade show active" id="components">
                 <div class="d-grid gap-2">
-                    <div class="component-item" draggable="true" ondragstart="dragStart(event)" data-type="icon" data-icon="fa-snowflake" data-color="#0dcaf0" data-label="冷氣機">
-                        <i class="fas fa-snowflake text-info"></i> 冷氣機
+                    <!-- 冷氣機：綠色 (#198754) -->
+                    <div class="component-item" draggable="true" ondragstart="dragStart(event)" data-type="icon" data-icon="fa-snowflake" data-color="#198754" data-label="冷氣機">
+                        <i class="fas fa-snowflake text-success"></i> 冷氣機
                     </div>
-                    <div class="component-item" draggable="true" ondragstart="dragStart(event)" data-type="icon" data-icon="fa-wind" data-color="#6c757d" data-label="除濕機">
-                        <i class="fas fa-wind text-secondary"></i> 除濕機
+                    <!-- 除濕機：橘色 (#fd7e14) -->
+                    <div class="component-item" draggable="true" ondragstart="dragStart(event)" data-type="icon" data-icon="fa-wind" data-color="#fd7e14" data-label="除濕機">
+                        <i class="fas fa-wind text-orange"></i> 除濕機
                     </div>
-                    <div class="component-item" draggable="true" ondragstart="dragStart(event)" data-type="icon" data-icon="fa-droplet" data-color="#0d6efd" data-label="漏水點">
-                        <i class="fas fa-droplet text-primary"></i> 漏水發生點
+                    <!-- 漏水：紅色 (#dc3545) -->
+                    <div class="component-item" draggable="true" ondragstart="dragStart(event)" data-type="icon" data-icon="fa-droplet" data-color="#dc3545" data-label="漏水點">
+                        <i class="fas fa-droplet text-danger"></i> 漏水發生點
                     </div>
-                    <div class="component-item" draggable="true" ondragstart="dragStart(event)" data-type="icon" data-icon="fa-bug" data-color="#dc3545" data-label="鼠患/蟲害">
-                        <i class="fas fa-bug text-danger"></i> 鼠患/蟲害紀錄
+                    <!-- 鼠患：深灰色 (#343a40) -->
+                    <div class="component-item" draggable="true" ondragstart="dragStart(event)" data-type="icon" data-icon="fa-bug" data-color="#343a40" data-label="鼠患/蟲害">
+                        <i class="fas fa-bug text-dark-gray"></i> 鼠患/蟲害紀錄
                     </div>
+                    <!-- 注意：黃色 (維持不變) -->
                     <div class="component-item" draggable="true" ondragstart="dragStart(event)" data-type="icon" data-icon="fa-triangle-exclamation" data-color="#ffc107" data-label="注意區域">
                         <i class="fas fa-triangle-exclamation text-warning"></i> 警告/注意區域
                     </div>
@@ -243,8 +253,8 @@
                     <div class="col-4">
                         <label class="form-label mb-1" style="font-size:0.8rem">文字粗細</label>
                         <select class="form-select form-select-sm" id="customTextWeight">
+                            <option value="bold" selected>粗體</option> <!-- 預設改為粗體 -->
                             <option value="normal">正常</option>
-                            <option value="bold">粗體</option>
                         </select>
                     </div>
                 </div>
@@ -372,11 +382,12 @@
 
             if (iconClass) {
                 const pointer = canvas.getPointer(e);
-                addComponentToCanvas(iconClass, color, label, pointer.x, pointer.y, "", "#333333", "normal");
+                // 拖曳預設參數修改：字體黑色 (#333333)，粗體 (bold)，字級在下方函式控制
+                addComponentToCanvas(iconClass, color, label, pointer.x, pointer.y, "", "#333333", "bold");
             }
         });
 
-        function addComponentToCanvas(iconClass, color, labelText, left, top, noteContent = "", textColor = "#333333", fontWeight = "normal") {
+        function addComponentToCanvas(iconClass, color, labelText, left, top, noteContent = "", textColor = "#333333", fontWeight = "bold") {
             ensureTypeIsVisible(iconClass);
 
             const circle = new fabric.Circle({
@@ -387,11 +398,11 @@
             });
 
             const text = new fabric.Text(labelText, {
-                fontSize: 14,
+                fontSize: 18,        // 字體加大至 18
                 originX: 'center', originY: 'top',
                 top: 20,
                 fill: textColor,
-                fontWeight: fontWeight,
+                fontWeight: fontWeight, // 預設 bold
                 fontFamily: 'Microsoft JhengHei'
             });
 
@@ -446,7 +457,7 @@
                 
                 if (activeObj.item(1)) {
                     editTextColor.value = activeObj.item(1).fill || "#333333";
-                    editTextWeight.value = activeObj.item(1).fontWeight || "normal";
+                    editTextWeight.value = activeObj.item(1).fontWeight || "bold"; // 預設為粗體
                 }
 
                 editPanel.style.display = 'block';
@@ -506,15 +517,12 @@
         });
 
         // ==========================================
-        // 4. PDF 匯出功能 (重點功能)
+        // 4. PDF 匯出功能
         // ==========================================
         window.exportToPDF = async function() {
             const { jsPDF } = window.jspdf;
 
-            // 1. 產生表格 HTML
             let logTableRows = '';
-            // 反轉 logData 確保最新的在上面，或者依照時間順序 (這裡用時間順序較適合報告)
-            // 這裡使用原始順序(舊到新)做表格
             logData.forEach((log, index) => {
                 logTableRows += `
                     <tr>
@@ -526,12 +534,10 @@
                 `;
             });
 
-            // 2. 構建報告 HTML 結構
             const container = document.getElementById('pdf-temp-container');
             const currentDate = new Date().toLocaleString();
             
-            // 取得 Canvas 的高品質圖片 (倍率 2 讓字體更清晰)
-            canvas.discardActiveObject(); // 取消選取狀態，避免截到藍色選取框
+            canvas.discardActiveObject(); 
             canvas.requestRenderAll();
             const canvasImgData = canvas.toDataURL({ format: 'png', multiplier: 2 });
 
@@ -564,35 +570,25 @@
                 </table>
             `;
 
-            // 3. 使用 html2canvas 截圖並生成 PDF
-            // 注意：為了支援中文字型，我們將整個 HTML 結構轉為圖片放入 PDF
             try {
                 addLog("系統", "正在生成 PDF，請稍候...");
                 const canvasEl = await html2canvas(container, {
-                    scale: 2 // 提高截圖解析度
+                    scale: 2 
                 });
 
                 const imgData = canvasEl.toDataURL('image/jpeg', 0.9);
                 
-                // 初始化 PDF (A4 尺寸)
                 const pdf = new jsPDF('p', 'mm', 'a4');
                 const pdfWidth = pdf.internal.pageSize.getWidth();
                 const pdfHeight = pdf.internal.pageSize.getHeight();
                 
-                // 計算圖片在 PDF 中的高度 (等比例縮放)
                 const imgProps = pdf.getImageProperties(imgData);
                 const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
                 
-                // 如果內容太長，jspdf addImage 不會自動分頁，這裡做簡單處理：
-                // 如果只需要一頁 (通常平面圖+少量log)
                 if (imgHeight <= pdfHeight) {
                     pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, imgHeight);
                 } else {
-                    // 如果太長，則需要手動分割 (這裡簡化為長圖縮放，若需精確分頁會更複雜)
-                    // 為了報告完整性，這裡選擇將長圖切分或縮放。
-                    // 簡單解法：先添加第一頁
                     pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, imgHeight);
-                    // *若要專業分頁需更複雜邏輯，目前版本先支援單頁長圖自動縮放或多頁切分
                 }
 
                 pdf.save(`平面圖報告_${new Date().toISOString().slice(0,10)}.pdf`);
@@ -602,7 +598,7 @@
                 console.error(error);
                 alert("PDF 生成失敗，請檢查瀏覽器相容性");
             } finally {
-                container.innerHTML = ''; // 清空暫存區
+                container.innerHTML = ''; 
             }
         }
 
@@ -713,7 +709,6 @@
             addLog("系統", "已匯出網頁檔案");
         }
 
-        // 讀取存檔
         const dataScript = document.getElementById('saved-data');
         if (dataScript && dataScript.textContent.trim() !== "") {
             try {

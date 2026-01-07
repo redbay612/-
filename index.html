@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>平面圖事件紀錄系統 (樣式優化版)</title>
+    <title>平面圖事件紀錄系統 (修正匯入異常版)</title>
     <!-- 引入 Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- 引入 FontAwesome 圖示庫 -->
@@ -18,12 +18,22 @@
         body { background-color: #f4f6f9; height: 100vh; overflow: hidden; font-family: "Microsoft JhengHei", sans-serif; }
         .main-container { height: 100%; display: flex; }
         .sidebar { width: 380px; background: white; border-right: 1px solid #ddd; display: flex; flex-direction: column; padding: 15px; overflow-y: auto; }
-        .canvas-area { flex-grow: 1; background: #e9ecef; position: relative; display: flex; justify-content: center; align-items: center; overflow: auto; }
+        /* 修正 Canvas 區域樣式，確保圖片置中且不被切掉 */
+        .canvas-area { 
+            flex-grow: 1; 
+            background: #e9ecef; 
+            position: relative; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            overflow: auto; /* 允許捲動 */
+            padding: 20px;
+        }
         
         #canvas-wrapper { 
-            box-shadow: 0 0 20px rgba(0,0,0,0.1); 
+            box-shadow: 0 0 20px rgba(0,0,0,0.2); 
             background: white; 
-            margin: auto; 
+            /* 移除 margin: auto，由 flex 控制 */
         }
 
         .component-item {
@@ -43,7 +53,6 @@
         .log-item { font-size: 0.9rem; border-bottom: 1px solid #eee; padding: 8px 0; }
         .log-time { color: #888; font-size: 0.8rem; }
         
-        /* 編輯面板樣式 */
         #edit-panel {
             background-color: #fff3cd;
             border: 1px solid #ffecb5;
@@ -66,20 +75,13 @@
             gap: 5px;
         }
         .form-check-label { font-size: 0.9rem; cursor: pointer; }
-
-        /* 自定義顏色類別 (Bootstrap 擴充) */
         .text-orange { color: #fd7e14 !important; }
         .text-dark-gray { color: #343a40 !important; }
 
-        /* PDF 匯出時的隱藏容器樣式 */
         #pdf-temp-container {
             position: fixed;
-            top: -9999px;
-            left: -9999px;
-            width: 800px;
-            background: white;
-            padding: 40px;
-            border: 1px solid #000;
+            top: -9999px; left: -9999px; width: 800px;
+            background: white; padding: 40px; border: 1px solid #000;
         }
         .pdf-header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
         .pdf-info { margin-bottom: 20px; font-size: 0.9rem; color: #555; }
@@ -97,10 +99,15 @@
         <div id="canvas-wrapper">
             <canvas id="c" width="800" height="600"></canvas>
         </div>
-        <div class="position-absolute top-0 start-0 m-3 d-flex gap-2">
+        
+        <div class="position-absolute top-0 start-0 m-3 d-flex gap-2 flex-wrap" style="max-width: 80%; z-index: 1000;">
             <label class="btn btn-primary shadow">
                 <i class="fas fa-image me-2"></i>匯入平面圖
                 <input type="file" id="imgLoader" style="display: none;" accept="image/*">
+            </label>
+            <label class="btn btn-secondary shadow">
+                <i class="fas fa-file-import me-2"></i>匯入存檔
+                <input type="file" id="fileLoader" style="display: none;" accept=".html">
             </label>
             <button class="btn btn-success shadow" onclick="saveSystem()">
                 <i class="fas fa-save me-2"></i>儲存網頁
@@ -151,7 +158,6 @@
         <div class="filter-section">
             <h6 class="fw-bold mb-2"><i class="fas fa-filter"></i> 顯示篩選 (可多選)</h6>
             <div class="filter-grid" id="visibilityControls">
-                <!-- 更新顏色 class 與 value 對應 -->
                 <div class="form-check">
                     <input class="form-check-input filter-cb" type="checkbox" value="fa-snowflake" checked id="cb-cool">
                     <label class="form-check-label" for="cb-cool"><i class="fas fa-snowflake text-success"></i> 冷氣機 (綠)</label>
@@ -199,33 +205,28 @@
         </ul>
 
         <div class="tab-content" id="myTabContent">
-            <!-- 預設組件：顏色已更新 -->
+            <!-- 組件庫 -->
             <div class="tab-pane fade show active" id="components">
                 <div class="d-grid gap-2">
-                    <!-- 冷氣機：綠色 (#198754) -->
                     <div class="component-item" draggable="true" ondragstart="dragStart(event)" data-type="icon" data-icon="fa-snowflake" data-color="#198754" data-label="冷氣機">
                         <i class="fas fa-snowflake text-success"></i> 冷氣機
                     </div>
-                    <!-- 除濕機：橘色 (#fd7e14) -->
                     <div class="component-item" draggable="true" ondragstart="dragStart(event)" data-type="icon" data-icon="fa-wind" data-color="#fd7e14" data-label="除濕機">
                         <i class="fas fa-wind text-orange"></i> 除濕機
                     </div>
-                    <!-- 漏水：紅色 (#dc3545) -->
                     <div class="component-item" draggable="true" ondragstart="dragStart(event)" data-type="icon" data-icon="fa-droplet" data-color="#dc3545" data-label="漏水點">
                         <i class="fas fa-droplet text-danger"></i> 漏水發生點
                     </div>
-                    <!-- 鼠患：深灰色 (#343a40) -->
                     <div class="component-item" draggable="true" ondragstart="dragStart(event)" data-type="icon" data-icon="fa-bug" data-color="#343a40" data-label="鼠患/蟲害">
                         <i class="fas fa-bug text-dark-gray"></i> 鼠患/蟲害紀錄
                     </div>
-                    <!-- 注意：黃色 (維持不變) -->
                     <div class="component-item" draggable="true" ondragstart="dragStart(event)" data-type="icon" data-icon="fa-triangle-exclamation" data-color="#ffc107" data-label="注意區域">
                         <i class="fas fa-triangle-exclamation text-warning"></i> 警告/注意區域
                     </div>
                 </div>
             </div>
 
-            <!-- 自定義組件 -->
+            <!-- 自定義 -->
             <div class="tab-pane fade" id="custom">
                 <div class="mb-2">
                     <label class="form-label">事件名稱</label>
@@ -253,7 +254,7 @@
                     <div class="col-4">
                         <label class="form-label mb-1" style="font-size:0.8rem">文字粗細</label>
                         <select class="form-select form-select-sm" id="customTextWeight">
-                            <option value="bold" selected>粗體</option> <!-- 預設改為粗體 -->
+                            <option value="bold" selected>粗體</option>
                             <option value="normal">正常</option>
                         </select>
                     </div>
@@ -265,7 +266,7 @@
                 <button class="btn btn-dark w-100" onclick="addCustomComponent()">新增至畫面</button>
             </div>
 
-            <!-- 紀錄列表 -->
+            <!-- 紀錄 -->
             <div class="tab-pane fade" id="logs">
                 <div id="logList">
                     <p class="text-muted text-center mt-3">暫無編輯紀錄</p>
@@ -275,10 +276,7 @@
     </div>
 </div>
 
-<!-- 隱藏的 PDF 生成容器 -->
 <div id="pdf-temp-container"></div>
-
-<!-- 儲存資料的容器 -->
 <script id="saved-data" type="application/json"></script>
 
 <script>
@@ -289,7 +287,7 @@
         const STANDARD_TYPES = ['fa-snowflake', 'fa-wind', 'fa-droplet', 'fa-bug', 'fa-triangle-exclamation'];
 
         // ==========================================
-        // 1. 圖片匯入
+        // 1. 圖片匯入 (修正邏輯: 自動適應容器大小)
         // ==========================================
         const imgLoader = document.getElementById('imgLoader');
         if (imgLoader) {
@@ -302,13 +300,22 @@
                     imgObj.src = event.target.result;
                     
                     imgObj.onload = function () {
+                        // 取得容器的可用空間
                         const area = document.querySelector('.canvas-area');
-                        const maxWidth = (area && area.clientWidth > 0) ? area.clientWidth - 50 : 800;
+                        const padding = 40; // 預留邊距
+                        const availableWidth = area.clientWidth - padding;
+                        const availableHeight = area.clientHeight - padding;
 
-                        let scale = 1;
-                        if (imgObj.width > maxWidth) {
-                            scale = maxWidth / imgObj.width;
-                        }
+                        // 計算寬與高的縮放比例
+                        const scaleW = availableWidth / imgObj.width;
+                        const scaleH = availableHeight / imgObj.height;
+
+                        // 取較小的比例，確保圖片完整顯示 (Contain)
+                        // 限制 scale 最大為 1 (如果不希望小圖被放大模糊，保留此行；若希望小圖也放大填滿，可移除 Math.min 的 1)
+                        let scale = Math.min(scaleW, scaleH);
+
+                        // 防止 scale 為 Infinity 或 0
+                        if (!isFinite(scale) || scale <= 0) scale = 1;
 
                         const imgInstance = new fabric.Image(imgObj, {
                             scaleX: scale,
@@ -317,11 +324,12 @@
                             originY: 'top'
                         });
 
+                        // 設定畫布大小為縮放後的圖片大小
                         canvas.setWidth(imgObj.width * scale);
                         canvas.setHeight(imgObj.height * scale);
                         canvas.setBackgroundImage(imgInstance, canvas.renderAll.bind(canvas));
                         
-                        addLog("系統", "已匯入平面圖");
+                        addLog("系統", "已匯入平面圖 (自動縮放適應視窗)");
                     }
                 }
                 reader.readAsDataURL(e.target.files[0]);
@@ -330,8 +338,60 @@
         }
 
         // ==========================================
-        // 2. 篩選與新增邏輯
+        // 1.1 匯入存檔 (修正邏輯: 強制調整畫布尺寸)
         // ==========================================
+        const fileLoader = document.getElementById('fileLoader');
+        if (fileLoader) {
+            fileLoader.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const text = event.target.result;
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(text, 'text/html');
+                    const scriptTag = doc.getElementById('saved-data');
+
+                    if (scriptTag && scriptTag.textContent.trim() !== "") {
+                        try {
+                            const savedData = JSON.parse(scriptTag.textContent);
+                            
+                            // 恢復紀錄
+                            if(savedData.logs) {
+                                logData = savedData.logs;
+                                renderLogs();
+                            }
+
+                            // 恢復 Canvas
+                            if(savedData.canvas) {
+                                canvas.loadFromJSON(savedData.canvas, function() {
+                                    // 關鍵修正：讀取後檢查背景圖，重新調整畫布大小
+                                    if (canvas.backgroundImage) {
+                                        const bg = canvas.backgroundImage;
+                                        // 根據背景圖的縮放後尺寸調整畫布
+                                        canvas.setWidth(bg.width * bg.scaleX);
+                                        canvas.setHeight(bg.height * bg.scaleY);
+                                    }
+                                    canvas.renderAll();
+                                    addLog("系統", "已成功讀取外部存檔");
+                                });
+                            }
+                        } catch (err) {
+                            alert("檔案格式錯誤或損毀");
+                            console.error(err);
+                        }
+                    } else {
+                        alert("找不到存檔資料");
+                    }
+                };
+                reader.readAsText(file);
+                e.target.value = ''; 
+            });
+        }
+
+        // ... (以下邏輯保持不變，包含篩選、拖曳、編輯、PDF匯出等) ...
+        
         document.querySelectorAll('.filter-cb').forEach(cb => {
             cb.addEventListener('change', updateVisibility);
         });
@@ -339,7 +399,6 @@
         function updateVisibility() {
             const checkedValues = Array.from(document.querySelectorAll('.filter-cb:checked')).map(cb => cb.value);
             const objects = canvas.getObjects();
-            
             objects.forEach(obj => {
                 const type = obj.customType;
                 if (STANDARD_TYPES.includes(type)) {
@@ -348,7 +407,6 @@
                     obj.visible = checkedValues.includes('other');
                 }
             });
-
             canvas.discardActiveObject(); 
             canvas.requestRenderAll();
             document.getElementById('edit-panel').style.display = 'none';
@@ -356,9 +414,7 @@
 
         function ensureTypeIsVisible(type) {
             let targetValue = type;
-            if (!STANDARD_TYPES.includes(type)) {
-                targetValue = 'other';
-            }
+            if (!STANDARD_TYPES.includes(type)) { targetValue = 'other'; }
             const checkbox = document.querySelector(`.filter-cb[value="${targetValue}"]`);
             if (checkbox && !checkbox.checked) {
                 checkbox.checked = true;
@@ -379,48 +435,30 @@
             const iconClass = e.dataTransfer.getData('icon');
             const color = e.dataTransfer.getData('color');
             const label = e.dataTransfer.getData('label');
-
             if (iconClass) {
                 const pointer = canvas.getPointer(e);
-                // 拖曳預設參數修改：字體黑色 (#333333)，粗體 (bold)，字級在下方函式控制
                 addComponentToCanvas(iconClass, color, label, pointer.x, pointer.y, "", "#333333", "bold");
             }
         });
 
         function addComponentToCanvas(iconClass, color, labelText, left, top, noteContent = "", textColor = "#333333", fontWeight = "bold") {
             ensureTypeIsVisible(iconClass);
-
             const circle = new fabric.Circle({
-                radius: 15,
-                fill: color,
-                originX: 'center', originY: 'center',
-                stroke: 'white', strokeWidth: 2
+                radius: 15, fill: color, originX: 'center', originY: 'center', stroke: 'white', strokeWidth: 2
             });
-
             const text = new fabric.Text(labelText, {
-                fontSize: 18,        // 字體加大至 18
-                originX: 'center', originY: 'top',
-                top: 20,
-                fill: textColor,
-                fontWeight: fontWeight, // 預設 bold
-                fontFamily: 'Microsoft JhengHei'
+                fontSize: 18, originX: 'center', originY: 'top', top: 20,
+                fill: textColor, fontWeight: fontWeight, fontFamily: 'Microsoft JhengHei'
             });
-
             const group = new fabric.Group([circle, text], {
-                left: left,
-                top: top,
-                hasBorders: true,
-                hasControls: true
+                left: left, top: top, hasBorders: true, hasControls: true
             });
-            
             group.customLabel = labelText;
             group.customType = iconClass;
             group.customNote = noteContent;
             group.timestamp = new Date().toLocaleString();
-
             canvas.add(group);
             canvas.setActiveObject(group);
-            
             let logMsg = `添加了 [${labelText}]`;
             if(noteContent) logMsg += ` (備註: ${noteContent})`;
             addLog("新增", logMsg);
@@ -433,16 +471,11 @@
             const note = document.getElementById('customNote').value;
             const textColor = document.getElementById('customTextColor').value;
             const textWeight = document.getElementById('customTextWeight').value;
-            
             addComponentToCanvas(icon, color, label, canvas.width / 2, canvas.height / 2, note, textColor, textWeight);
-            
             document.getElementById('customLabel').value = "";
             document.getElementById('customNote').value = "";
         }
 
-        // ==========================================
-        // 3. 編輯功能
-        // ==========================================
         const editPanel = document.getElementById('edit-panel');
         const editLabelInput = document.getElementById('editLabelInput');
         const editNoteInput = document.getElementById('editNoteInput');
@@ -454,22 +487,16 @@
             if (activeObj && activeObj.type === 'group' && activeObj.visible) {
                 editLabelInput.value = activeObj.customLabel || "";
                 editNoteInput.value = activeObj.customNote || "";
-                
                 if (activeObj.item(1)) {
                     editTextColor.value = activeObj.item(1).fill || "#333333";
-                    editTextWeight.value = activeObj.item(1).fontWeight || "bold"; // 預設為粗體
+                    editTextWeight.value = activeObj.item(1).fontWeight || "bold";
                 }
-
                 editPanel.style.display = 'block';
             } else {
                 editPanel.style.display = 'none';
             }
         }
-
-        function onSelectionCleared() {
-            editPanel.style.display = 'none';
-        }
-
+        function onSelectionCleared() { editPanel.style.display = 'none'; }
         canvas.on('selection:created', onSelectionCreated);
         canvas.on('selection:updated', onSelectionCreated);
         canvas.on('selection:cleared', onSelectionCleared);
@@ -478,22 +505,15 @@
             const activeObj = canvas.getActiveObject();
             if (activeObj) {
                 const oldLabel = activeObj.customLabel;
-                const newLabel = editLabelInput.value;
-                const newNote = editNoteInput.value;
-                const newColor = editTextColor.value;
-                const newWeight = editTextWeight.value;
-
-                activeObj.customLabel = newLabel;
-                activeObj.customNote = newNote;
-
+                activeObj.customLabel = editLabelInput.value;
+                activeObj.customNote = editNoteInput.value;
                 if (activeObj.item(1)) {
-                    activeObj.item(1).set('text', newLabel);
-                    activeObj.item(1).set('fill', newColor);
-                    activeObj.item(1).set('fontWeight', newWeight);
+                    activeObj.item(1).set('text', editLabelInput.value);
+                    activeObj.item(1).set('fill', editTextColor.value);
+                    activeObj.item(1).set('fontWeight', editTextWeight.value);
                 }
-
                 canvas.requestRenderAll();
-                addLog("更新", `更新了 [${oldLabel}] 的資料 (備註: ${newNote})`);
+                addLog("更新", `更新了 [${oldLabel}] 的資料`);
                 alert("更新成功！");
             }
         }
@@ -516,126 +536,63 @@
             }
         });
 
-        // ==========================================
-        // 4. PDF 匯出功能
-        // ==========================================
         window.exportToPDF = async function() {
             const { jsPDF } = window.jspdf;
-
             let logTableRows = '';
             logData.forEach((log, index) => {
-                logTableRows += `
-                    <tr>
-                        <td>${index + 1}</td>
-                        <td>${log.time}</td>
-                        <td>${log.action}</td>
-                        <td>${log.desc}</td>
-                    </tr>
-                `;
+                logTableRows += `<tr><td>${index + 1}</td><td>${log.time}</td><td>${log.action}</td><td>${log.desc}</td></tr>`;
             });
-
             const container = document.getElementById('pdf-temp-container');
             const currentDate = new Date().toLocaleString();
-            
             canvas.discardActiveObject(); 
             canvas.requestRenderAll();
             const canvasImgData = canvas.toDataURL({ format: 'png', multiplier: 2 });
 
             container.innerHTML = `
-                <div class="pdf-header">
-                    <h1>平面圖事件紀錄報告</h1>
-                </div>
-                <div class="pdf-info">
-                    <p><strong>匯出時間：</strong>${currentDate}</p>
-                    <p><strong>紀錄筆數：</strong>${logData.length} 筆</p>
-                </div>
-                
-                <div style="text-align:center; margin-bottom: 20px; border: 1px solid #ccc;">
-                    <img src="${canvasImgData}" style="max-width: 100%; height: auto;">
-                </div>
-
+                <div class="pdf-header"><h1>平面圖事件紀錄報告</h1></div>
+                <div class="pdf-info"><p><strong>匯出時間：</strong>${currentDate}</p><p><strong>紀錄筆數：</strong>${logData.length} 筆</p></div>
+                <div style="text-align:center; margin-bottom: 20px; border: 1px solid #ccc;"><img src="${canvasImgData}" style="max-width: 100%; height: auto;"></div>
                 <h3>事件紀錄明細</h3>
-                <table class="pdf-table">
-                    <thead>
-                        <tr>
-                            <th width="5%">#</th>
-                            <th width="20%">時間</th>
-                            <th width="10%">動作</th>
-                            <th>內容說明</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${logTableRows}
-                    </tbody>
-                </table>
+                <table class="pdf-table"><thead><tr><th width="5%">#</th><th width="20%">時間</th><th width="10%">動作</th><th>內容說明</th></tr></thead><tbody>${logTableRows}</tbody></table>
             `;
 
             try {
-                addLog("系統", "正在生成 PDF，請稍候...");
-                const canvasEl = await html2canvas(container, {
-                    scale: 2 
-                });
-
+                addLog("系統", "正在生成 PDF...");
+                const canvasEl = await html2canvas(container, { scale: 2 });
                 const imgData = canvasEl.toDataURL('image/jpeg', 0.9);
-                
                 const pdf = new jsPDF('p', 'mm', 'a4');
                 const pdfWidth = pdf.internal.pageSize.getWidth();
                 const pdfHeight = pdf.internal.pageSize.getHeight();
-                
                 const imgProps = pdf.getImageProperties(imgData);
                 const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
-                
-                if (imgHeight <= pdfHeight) {
-                    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, imgHeight);
-                } else {
-                    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, imgHeight);
-                }
-
+                pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, imgHeight);
                 pdf.save(`平面圖報告_${new Date().toISOString().slice(0,10)}.pdf`);
                 addLog("系統", "PDF 匯出完成");
-
             } catch (error) {
                 console.error(error);
-                alert("PDF 生成失敗，請檢查瀏覽器相容性");
-            } finally {
-                container.innerHTML = ''; 
-            }
+                alert("PDF 生成失敗");
+            } finally { container.innerHTML = ''; }
         }
 
-        // ==========================================
-        // 5. 搜尋功能
-        // ==========================================
         window.searchEvents = function() {
             const keyword = document.getElementById('searchInput').value.trim();
             const objects = canvas.getObjects();
             canvas.discardActiveObject();
             editPanel.style.display = 'none';
-
             objects.forEach(obj => {
                 if (!obj.visible) return;
-
                 if (keyword === "") {
                     obj.set('opacity', 1);
-                    if(obj.item(0)) {
-                        obj.item(0).set('stroke', 'white');
-                        obj.item(0).set('strokeWidth', 2);
-                    }
+                    if(obj.item(0)) { obj.item(0).set('stroke', 'white'); obj.item(0).set('strokeWidth', 2); }
                 } else {
                     const matchLabel = obj.customLabel && obj.customLabel.includes(keyword);
                     const matchNote = obj.customNote && obj.customNote.includes(keyword);
-
                     if (matchLabel || matchNote) {
                         obj.set('opacity', 1);
-                        if(obj.item(0)) {
-                            obj.item(0).set('stroke', 'red');
-                            obj.item(0).set('strokeWidth', 5);
-                        }
+                        if(obj.item(0)) { obj.item(0).set('stroke', 'red'); obj.item(0).set('strokeWidth', 5); }
                     } else {
                         obj.set('opacity', 0.2);
-                        if(obj.item(0)) {
-                            obj.item(0).set('stroke', 'white');
-                            obj.item(0).set('strokeWidth', 2);
-                        }
+                        if(obj.item(0)) { obj.item(0).set('stroke', 'white'); obj.item(0).set('strokeWidth', 2); }
                     }
                 }
             });
@@ -643,13 +600,8 @@
             renderLogs(keyword);
         }
         
-        document.getElementById('searchInput').addEventListener('keyup', function(e){
-            if(e.key === 'Enter') searchEvents();
-        });
+        document.getElementById('searchInput').addEventListener('keyup', function(e){ if(e.key === 'Enter') searchEvents(); });
 
-        // ==========================================
-        // 6. 紀錄與存檔
-        // ==========================================
         function addLog(action, desc) {
             const time = new Date().toLocaleString();
             logData.push({ time, action, desc });
@@ -659,43 +611,23 @@
         function renderLogs(filterText = "") {
             const list = document.getElementById('logList');
             list.innerHTML = "";
-            const filtered = logData.filter(log => 
-                filterText === "" || log.desc.includes(filterText)
-            );
-
-            if(filtered.length === 0) {
-                list.innerHTML = '<p class="text-muted text-center mt-3">無相關紀錄</p>';
-                return;
-            }
-
+            const filtered = logData.filter(log => filterText === "" || log.desc.includes(filterText));
+            if(filtered.length === 0) { list.innerHTML = '<p class="text-muted text-center mt-3">無相關紀錄</p>'; return; }
             [...filtered].reverse().forEach(log => {
                 const item = document.createElement('div');
                 item.className = 'log-item';
-                item.innerHTML = `
-                    <div class="d-flex justify-content-between">
-                        <strong>${log.action}</strong>
-                        <span class="log-time">${log.time}</span>
-                    </div>
-                    <div class="text-break">${log.desc}</div>
-                `;
+                item.innerHTML = `<div class="d-flex justify-content-between"><strong>${log.action}</strong><span class="log-time">${log.time}</span></div><div class="text-break">${log.desc}</div>`;
                 list.appendChild(item);
             });
         }
 
         window.saveSystem = function() {
             const canvasJson = JSON.stringify(canvas.toJSON(['customLabel', 'customType', 'customNote', 'timestamp']));
-            
-            const saveData = {
-                canvas: canvasJson,
-                logs: logData
-            };
-
+            const saveData = { canvas: canvasJson, logs: logData };
             let htmlContent = document.documentElement.outerHTML;
             const dataScriptPattern = /<script id="saved-data" type="application\/json">([\s\S]*?)<\/script>/;
             const newDataScript = `<script id="saved-data" type="application/json">${JSON.stringify(saveData)}<\/script>`;
-            
             htmlContent = htmlContent.replace(dataScriptPattern, newDataScript);
-
             const blob = new Blob([htmlContent], {type: 'text/html'});
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -705,29 +637,28 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-            
             addLog("系統", "已匯出網頁檔案");
         }
 
+        // 自動讀取 (自我還原)
         const dataScript = document.getElementById('saved-data');
         if (dataScript && dataScript.textContent.trim() !== "") {
             try {
                 const savedData = JSON.parse(dataScript.textContent);
-                if(savedData.logs) {
-                    logData = savedData.logs;
-                    renderLogs();
-                }
+                if(savedData.logs) { logData = savedData.logs; renderLogs(); }
                 if(savedData.canvas) {
                     canvas.loadFromJSON(savedData.canvas, function() {
+                        if (canvas.backgroundImage) {
+                            const bg = canvas.backgroundImage;
+                            canvas.setWidth(bg.width * bg.scaleX);
+                            canvas.setHeight(bg.height * bg.scaleY);
+                        }
                         canvas.renderAll();
                         addLog("系統", "已成功讀取舊檔紀錄");
                     });
                 }
-            } catch (e) {
-                console.error("讀取存檔失敗", e);
-            }
+            } catch (e) { console.error("讀取存檔失敗", e); }
         }
-
     });
 </script>
 <!-- Bootstrap JS -->

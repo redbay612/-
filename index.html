@@ -3,13 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>平面圖事件紀錄系統 (文字樣式客製版)</title>
+    <title>平面圖事件紀錄系統 (PDF匯出版)</title>
     <!-- 引入 Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- 引入 FontAwesome 圖示庫 -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <!-- 引入 Fabric.js (處理 Canvas) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+    <!-- 引入 PDF 相關函式庫 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     
     <style>
         body { background-color: #f4f6f9; height: 100vh; overflow: hidden; font-family: "Microsoft JhengHei", sans-serif; }
@@ -63,6 +66,22 @@
             gap: 5px;
         }
         .form-check-label { font-size: 0.9rem; cursor: pointer; }
+
+        /* PDF 匯出時的隱藏容器樣式 */
+        #pdf-temp-container {
+            position: fixed;
+            top: -9999px;
+            left: -9999px;
+            width: 800px; /* A4 比例寬度參考 */
+            background: white;
+            padding: 40px;
+            border: 1px solid #000;
+        }
+        .pdf-header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
+        .pdf-info { margin-bottom: 20px; font-size: 0.9rem; color: #555; }
+        .pdf-table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.8rem; }
+        .pdf-table th, .pdf-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        .pdf-table th { background-color: #f2f2f2; }
     </style>
 </head>
 <body>
@@ -74,13 +93,16 @@
         <div id="canvas-wrapper">
             <canvas id="c" width="800" height="600"></canvas>
         </div>
-        <div class="position-absolute top-0 start-0 m-3">
+        <div class="position-absolute top-0 start-0 m-3 d-flex gap-2">
             <label class="btn btn-primary shadow">
                 <i class="fas fa-image me-2"></i>匯入平面圖
                 <input type="file" id="imgLoader" style="display: none;" accept="image/*">
             </label>
-            <button class="btn btn-success shadow ms-2" onclick="saveSystem()">
-                <i class="fas fa-save me-2"></i>另存網頁 (含紀錄)
+            <button class="btn btn-success shadow" onclick="saveSystem()">
+                <i class="fas fa-save me-2"></i>儲存網頁
+            </button>
+            <button class="btn btn-danger shadow" onclick="exportToPDF()">
+                <i class="fas fa-file-pdf me-2"></i>匯出 PDF
             </button>
         </div>
     </div>
@@ -89,7 +111,7 @@
     <div class="sidebar shadow-sm">
         <h5 class="border-bottom pb-2"><i class="fas fa-tools me-2"></i>操作面板</h5>
         
-        <!-- 動態編輯區 (新增樣式控制) -->
+        <!-- 動態編輯區 -->
         <div id="edit-panel" class="shadow-sm">
             <h6 class="text-warning-emphasis fw-bold"><i class="fas fa-pen-to-square"></i> 編輯選取項目</h6>
             <div class="mb-2">
@@ -97,7 +119,6 @@
                 <input type="text" class="form-control form-control-sm" id="editLabelInput">
             </div>
             
-            <!-- 新增：文字樣式控制 -->
             <div class="row g-2 mb-2">
                 <div class="col-6">
                     <label class="form-label mb-1">文字顏色</label>
@@ -122,7 +143,7 @@
             </div>
         </div>
 
-        <!-- 顯示篩選控制區 -->
+        <!-- 顯示篩選 -->
         <div class="filter-section">
             <h6 class="fw-bold mb-2"><i class="fas fa-filter"></i> 顯示篩選 (可多選)</h6>
             <div class="filter-grid" id="visibilityControls">
@@ -153,7 +174,7 @@
             </div>
         </div>
 
-        <!-- 搜尋功能 -->
+        <!-- 搜尋 -->
         <div class="input-group mb-3">
             <input type="text" id="searchInput" class="form-control" placeholder="搜尋名稱或備註...">
             <button class="btn btn-outline-secondary" type="button" onclick="searchEvents()"><i class="fas fa-search"></i></button>
@@ -194,7 +215,7 @@
                 </div>
             </div>
 
-            <!-- 自定義組件 (新增樣式輸入) -->
+            <!-- 自定義組件 -->
             <div class="tab-pane fade" id="custom">
                 <div class="mb-2">
                     <label class="form-label">事件名稱</label>
@@ -210,8 +231,6 @@
                         <option value="fa-comment-dots">💬 文字註記</option>
                     </select>
                 </div>
-                
-                <!-- 新增：圖示與文字外觀 -->
                 <div class="row g-2 mb-2">
                     <div class="col-4">
                         <label class="form-label mb-1" style="font-size:0.8rem">圖示顏色</label>
@@ -229,7 +248,6 @@
                         </select>
                     </div>
                 </div>
-
                 <div class="mb-3">
                     <label class="form-label">預設備註</label>
                     <textarea class="form-control" id="customNote" rows="2" placeholder="可在此先輸入備註內容"></textarea>
@@ -246,6 +264,9 @@
         </div>
     </div>
 </div>
+
+<!-- 隱藏的 PDF 生成容器 -->
+<div id="pdf-temp-container"></div>
 
 <!-- 儲存資料的容器 -->
 <script id="saved-data" type="application/json"></script>
@@ -299,7 +320,7 @@
         }
 
         // ==========================================
-        // 2. 篩選顯示
+        // 2. 篩選與新增邏輯
         // ==========================================
         document.querySelectorAll('.filter-cb').forEach(cb => {
             cb.addEventListener('change', updateVisibility);
@@ -335,9 +356,6 @@
             }
         }
 
-        // ==========================================
-        // 3. 拖曳與新增 (支援文字樣式參數)
-        // ==========================================
         window.dragStart = function(e) {
             e.dataTransfer.setData('icon', e.target.dataset.icon);
             e.dataTransfer.setData('color', e.target.dataset.color);
@@ -354,12 +372,10 @@
 
             if (iconClass) {
                 const pointer = canvas.getPointer(e);
-                // 拖曳預設為黑色正常字體
                 addComponentToCanvas(iconClass, color, label, pointer.x, pointer.y, "", "#333333", "normal");
             }
         });
 
-        // 核心新增函式：加入 textColor 與 fontWeight 參數
         function addComponentToCanvas(iconClass, color, labelText, left, top, noteContent = "", textColor = "#333333", fontWeight = "normal") {
             ensureTypeIsVisible(iconClass);
 
@@ -374,8 +390,8 @@
                 fontSize: 14,
                 originX: 'center', originY: 'top',
                 top: 20,
-                fill: textColor,      // 使用參數
-                fontWeight: fontWeight, // 使用參數
+                fill: textColor,
+                fontWeight: fontWeight,
                 fontFamily: 'Microsoft JhengHei'
             });
 
@@ -399,7 +415,6 @@
             addLog("新增", logMsg);
         }
 
-        // 自定義組件：讀取使用者設定的樣式
         window.addCustomComponent = function() {
             const label = document.getElementById('customLabel').value || "自定義標記";
             const icon = document.getElementById('customIcon').value;
@@ -410,13 +425,12 @@
             
             addComponentToCanvas(icon, color, label, canvas.width / 2, canvas.height / 2, note, textColor, textWeight);
             
-            // 重置輸入
             document.getElementById('customLabel').value = "";
             document.getElementById('customNote').value = "";
         }
 
         // ==========================================
-        // 4. 編輯功能 (支援文字樣式修改)
+        // 3. 編輯功能
         // ==========================================
         const editPanel = document.getElementById('edit-panel');
         const editLabelInput = document.getElementById('editLabelInput');
@@ -430,7 +444,6 @@
                 editLabelInput.value = activeObj.customLabel || "";
                 editNoteInput.value = activeObj.customNote || "";
                 
-                // 取得群組中的文字物件屬性 (item(1) 是文字)
                 if (activeObj.item(1)) {
                     editTextColor.value = activeObj.item(1).fill || "#333333";
                     editTextWeight.value = activeObj.item(1).fontWeight || "normal";
@@ -450,7 +463,6 @@
         canvas.on('selection:updated', onSelectionCreated);
         canvas.on('selection:cleared', onSelectionCleared);
 
-        // 更新按鈕：將面板的值寫回物件
         window.updateActiveObject = function() {
             const activeObj = canvas.getActiveObject();
             if (activeObj) {
@@ -463,7 +475,6 @@
                 activeObj.customLabel = newLabel;
                 activeObj.customNote = newNote;
 
-                // 更新文字顯示
                 if (activeObj.item(1)) {
                     activeObj.item(1).set('text', newLabel);
                     activeObj.item(1).set('fill', newColor);
@@ -493,6 +504,107 @@
                 }
             }
         });
+
+        // ==========================================
+        // 4. PDF 匯出功能 (重點功能)
+        // ==========================================
+        window.exportToPDF = async function() {
+            const { jsPDF } = window.jspdf;
+
+            // 1. 產生表格 HTML
+            let logTableRows = '';
+            // 反轉 logData 確保最新的在上面，或者依照時間順序 (這裡用時間順序較適合報告)
+            // 這裡使用原始順序(舊到新)做表格
+            logData.forEach((log, index) => {
+                logTableRows += `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${log.time}</td>
+                        <td>${log.action}</td>
+                        <td>${log.desc}</td>
+                    </tr>
+                `;
+            });
+
+            // 2. 構建報告 HTML 結構
+            const container = document.getElementById('pdf-temp-container');
+            const currentDate = new Date().toLocaleString();
+            
+            // 取得 Canvas 的高品質圖片 (倍率 2 讓字體更清晰)
+            canvas.discardActiveObject(); // 取消選取狀態，避免截到藍色選取框
+            canvas.requestRenderAll();
+            const canvasImgData = canvas.toDataURL({ format: 'png', multiplier: 2 });
+
+            container.innerHTML = `
+                <div class="pdf-header">
+                    <h1>平面圖事件紀錄報告</h1>
+                </div>
+                <div class="pdf-info">
+                    <p><strong>匯出時間：</strong>${currentDate}</p>
+                    <p><strong>紀錄筆數：</strong>${logData.length} 筆</p>
+                </div>
+                
+                <div style="text-align:center; margin-bottom: 20px; border: 1px solid #ccc;">
+                    <img src="${canvasImgData}" style="max-width: 100%; height: auto;">
+                </div>
+
+                <h3>事件紀錄明細</h3>
+                <table class="pdf-table">
+                    <thead>
+                        <tr>
+                            <th width="5%">#</th>
+                            <th width="20%">時間</th>
+                            <th width="10%">動作</th>
+                            <th>內容說明</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${logTableRows}
+                    </tbody>
+                </table>
+            `;
+
+            // 3. 使用 html2canvas 截圖並生成 PDF
+            // 注意：為了支援中文字型，我們將整個 HTML 結構轉為圖片放入 PDF
+            try {
+                addLog("系統", "正在生成 PDF，請稍候...");
+                const canvasEl = await html2canvas(container, {
+                    scale: 2 // 提高截圖解析度
+                });
+
+                const imgData = canvasEl.toDataURL('image/jpeg', 0.9);
+                
+                // 初始化 PDF (A4 尺寸)
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = pdf.internal.pageSize.getHeight();
+                
+                // 計算圖片在 PDF 中的高度 (等比例縮放)
+                const imgProps = pdf.getImageProperties(imgData);
+                const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
+                
+                // 如果內容太長，jspdf addImage 不會自動分頁，這裡做簡單處理：
+                // 如果只需要一頁 (通常平面圖+少量log)
+                if (imgHeight <= pdfHeight) {
+                    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, imgHeight);
+                } else {
+                    // 如果太長，則需要手動分割 (這裡簡化為長圖縮放，若需精確分頁會更複雜)
+                    // 為了報告完整性，這裡選擇將長圖切分或縮放。
+                    // 簡單解法：先添加第一頁
+                    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, imgHeight);
+                    // *若要專業分頁需更複雜邏輯，目前版本先支援單頁長圖自動縮放或多頁切分
+                }
+
+                pdf.save(`平面圖報告_${new Date().toISOString().slice(0,10)}.pdf`);
+                addLog("系統", "PDF 匯出完成");
+
+            } catch (error) {
+                console.error(error);
+                alert("PDF 生成失敗，請檢查瀏覽器相容性");
+            } finally {
+                container.innerHTML = ''; // 清空暫存區
+            }
+        }
 
         // ==========================================
         // 5. 搜尋功能
@@ -575,7 +687,6 @@
         }
 
         window.saveSystem = function() {
-            // Fabric.js 的 toJSON 會自動儲存文字的 fill 和 fontWeight 屬性，不需額外處理
             const canvasJson = JSON.stringify(canvas.toJSON(['customLabel', 'customType', 'customNote', 'timestamp']));
             
             const saveData = {

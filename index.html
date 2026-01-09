@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>平面圖事件紀錄系統 (含路線引導功能)</title>
+    <title>平面圖事件紀錄系統 (含錄影功能)</title>
     <!-- 引入 Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- 引入 FontAwesome 圖示庫 -->
@@ -87,10 +87,14 @@
         .pdf-table th, .pdf-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
         .pdf-table th { background-color: #f2f2f2; }
 
-        /* 路線引導專用樣式 */
         .route-controls .btn { width: 100%; margin-bottom: 5px; }
-        .blink-mode { animation: blinker 1.5s linear infinite; border: 2px solid red; }
-        @keyframes blinker { 50% { opacity: 0.5; } }
+        .recording-indicator {
+            position: absolute; top: 10px; right: 10px; 
+            background: rgba(255, 0, 0, 0.8); color: white; padding: 5px 10px; 
+            border-radius: 20px; font-weight: bold; display: none; z-index: 2000;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
@@ -101,6 +105,8 @@
     <div class="canvas-area" id="drop-area">
         <div id="canvas-wrapper">
             <canvas id="c" width="800" height="600"></canvas>
+            <!-- 錄影中提示 -->
+            <div id="recordingBadge" class="recording-indicator"><i class="fas fa-circle"></i> REC</div>
         </div>
         
         <div class="position-absolute top-0 start-0 m-3 d-flex gap-2 flex-wrap" style="max-width: 80%; z-index: 1000;">
@@ -120,7 +126,6 @@
             </button>
         </div>
         
-        <!-- 繪圖模式提示 -->
         <div id="drawing-hint" class="position-absolute bottom-0 start-50 translate-middle-x mb-3 badge bg-danger fs-5 shadow" style="display: none;">
             <i class="fas fa-pen"></i> 繪製模式開啟中：請點擊地圖規劃路線...
         </div>
@@ -237,14 +242,13 @@
                 </div>
             </div>
 
-            <!-- 路線引導功能 (新增) -->
+            <!-- 路線引導功能 -->
             <div class="tab-pane fade" id="route">
                 <div class="route-controls">
                     <div class="alert alert-info py-2" style="font-size: 0.9rem;">
                         <i class="fas fa-info-circle"></i> 操作說明：<br>
-                        1. 點擊「開始繪製」<br>
-                        2. 在地圖上依序點擊路徑點<br>
-                        3. 點擊「結束繪製」完成
+                        1. 繪製路徑<br>
+                        2. 播放預覽或錄製成影片
                     </div>
                     
                     <button id="btnStartDraw" class="btn btn-outline-primary" onclick="startDrawingRoute()">
@@ -256,13 +260,17 @@
                     </button>
                     
                     <div class="d-flex gap-2 mt-2">
-                        <button class="btn btn-warning" onclick="playRouteAnimation()">
-                            <i class="fas fa-play"></i> 播放導覽
+                        <button class="btn btn-warning w-50" onclick="playRouteAnimation()">
+                            <i class="fas fa-play"></i> 播放
                         </button>
-                        <button class="btn btn-secondary" onclick="clearRoute()">
-                            <i class="fas fa-trash"></i> 清除路徑
+                        <!-- 新增：錄影按鈕 -->
+                        <button class="btn btn-danger w-50" onclick="recordRouteVideo()">
+                            <i class="fas fa-video"></i> 錄製影片
                         </button>
                     </div>
+                    <button class="btn btn-secondary mt-2" onclick="clearRoute()">
+                        <i class="fas fa-trash"></i> 清除路徑
+                    </button>
                     
                     <hr>
                     <label class="form-label">路徑樣式</label>
@@ -279,7 +287,6 @@
 
             <!-- 自定義 -->
             <div class="tab-pane fade" id="custom">
-                <!-- 自定義表單內容 (保持不變) -->
                 <div class="mb-2">
                     <label class="form-label">事件名稱</label>
                     <input type="text" class="form-control" id="customLabel" placeholder="例如：202會議室">
@@ -338,14 +345,17 @@
         let logData = []; 
         const STANDARD_TYPES = ['fa-snowflake', 'fa-wind', 'fa-droplet', 'fa-bug', 'fa-triangle-exclamation'];
         
-        // 路線相關變數
         let isDrawingRoute = false;
         let routePoints = [];
         let activeRouteLine = null;
         let guideMarker = null;
 
+        // 錄影相關變數
+        let mediaRecorder;
+        let recordedChunks = [];
+
         // ==========================================
-        // 1. 路線引導核心邏輯 (新增)
+        // 1. 路線引導與錄影邏輯
         // ==========================================
         window.startDrawingRoute = function() {
             if (!canvas.backgroundImage) {
@@ -355,38 +365,28 @@
             isDrawingRoute = true;
             routePoints = [];
             
-            // UI 切換
             document.getElementById('btnStartDraw').style.display = 'none';
             document.getElementById('btnStopDraw').style.display = 'inline-block';
             document.getElementById('drawing-hint').style.display = 'block';
             
-            // 鎖定其他物件避免誤觸
             canvas.getObjects().forEach(obj => obj.selectable = false);
             canvas.defaultCursor = 'crosshair';
-            
             addLog("路線", "開始繪製導覽路徑");
         }
 
         window.stopDrawingRoute = function() {
             isDrawingRoute = false;
-            
-            // UI 切換
             document.getElementById('btnStartDraw').style.display = 'inline-block';
             document.getElementById('btnStopDraw').style.display = 'none';
             document.getElementById('drawing-hint').style.display = 'none';
-            
-            // 解鎖物件
             canvas.getObjects().forEach(obj => {
-                // 路徑線本身不給選，避免誤移
                 if(obj.customType !== 'route') obj.selectable = true;
             });
             canvas.defaultCursor = 'default';
-            
             addLog("路線", "完成路徑繪製");
         }
 
         window.clearRoute = function() {
-            // 清除現有的路線和標記
             const objects = canvas.getObjects();
             objects.forEach(obj => {
                 if (obj.customType === 'route' || obj.id === 'guideMarker') {
@@ -399,113 +399,129 @@
             addLog("路線", "清除路徑");
         }
 
-        // 監聽畫布點擊 (繪製路線用)
         canvas.on('mouse:down', function(opt) {
             if (!isDrawingRoute) return;
-
             const pointer = canvas.getPointer(opt.e);
             routePoints.push({ x: pointer.x, y: pointer.y });
 
-            // 繪製或更新線條
             const color = document.getElementById('routeColor').value;
             const width = parseInt(document.getElementById('routeWidth').value);
 
             if (routePoints.length > 1) {
-                // 移除舊線
                 if (activeRouteLine) canvas.remove(activeRouteLine);
-
-                // 繪製新線
                 activeRouteLine = new fabric.Polyline(routePoints, {
-                    stroke: color,
-                    strokeWidth: width,
-                    strokeDashArray: [10, 5], // 虛線效果
-                    fill: 'transparent',
-                    selectable: false,
-                    evented: false,
-                    originX: 'left',
-                    originY: 'top'
+                    stroke: color, strokeWidth: width, strokeDashArray: [10, 5],
+                    fill: 'transparent', selectable: false, evented: false, originX: 'left', originY: 'top'
                 });
-                
-                activeRouteLine.customType = 'route'; // 標記為路線
+                activeRouteLine.customType = 'route';
                 canvas.add(activeRouteLine);
                 canvas.renderAll();
             } else {
-                // 第一個點，畫個小圓提示起點
                 const startDot = new fabric.Circle({
-                    left: pointer.x, top: pointer.y,
-                    radius: width, fill: color,
-                    originX: 'center', originY: 'center',
-                    selectable: false,
-                    id: 'guideMarker' // 暫時標記，清除時一起清
+                    left: pointer.x, top: pointer.y, radius: width, fill: color, originX: 'center', originY: 'center', selectable: false, id: 'guideMarker'
                 });
                 canvas.add(startDot);
             }
         });
 
-        // 路線動畫播放
-        window.playRouteAnimation = function() {
+        // 啟動錄影並播放動畫
+        window.recordRouteVideo = function() {
             if (!activeRouteLine || routePoints.length < 2) {
                 alert("請先繪製路徑！");
                 return;
             }
 
-            // 如果已有標記在跑，先移除
+            // 1. 設定錄影串流
+            const canvasEl = document.getElementById('c');
+            const stream = canvasEl.captureStream(30); // 30 FPS
+            
+            // 初始化 MediaRecorder
+            recordedChunks = [];
+            // 嘗試使用 webm (Chrome/Firefox 預設)
+            const options = { mimeType: 'video/webm; codecs=vp9' };
+            if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                 // Fallback
+                 delete options.mimeType;
+            }
+            
+            mediaRecorder = new MediaRecorder(stream, options);
+
+            mediaRecorder.ondataavailable = function(e) {
+                if (e.data.size > 0) {
+                    recordedChunks.push(e.data);
+                }
+            };
+
+            mediaRecorder.onstop = function() {
+                // 停止後下載
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `路線導引_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.webm`;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                }, 100);
+                
+                document.getElementById('recordingBadge').style.display = 'none';
+                addLog("影片", "錄影完成並已下載");
+            };
+
+            // 2. 開始錄影
+            mediaRecorder.start();
+            document.getElementById('recordingBadge').style.display = 'block';
+            addLog("影片", "開始錄製...");
+
+            // 3. 觸發動畫，並傳入「正在錄影」旗標
+            playRouteAnimation(true);
+        }
+
+        window.playRouteAnimation = function(isRecording = false) {
+            if (!activeRouteLine || routePoints.length < 2) {
+                alert("請先繪製路徑！");
+                return;
+            }
             if (guideMarker) canvas.remove(guideMarker);
 
-            // 建立導覽標記 (一個顯眼的光點)
             guideMarker = new fabric.Circle({
-                radius: 8,
-                fill: '#ff0000',
-                stroke: '#fff',
-                strokeWidth: 2,
-                originX: 'center',
-                originY: 'center',
-                left: routePoints[0].x,
-                top: routePoints[0].y,
-                selectable: false,
-                evented: false,
-                id: 'guideMarker'
+                radius: 8, fill: '#ff0000', stroke: '#fff', strokeWidth: 2,
+                originX: 'center', originY: 'center', left: routePoints[0].x, top: routePoints[0].y,
+                selectable: false, evented: false, id: 'guideMarker'
             });
-            
-            // 加入發光效果
             guideMarker.set('shadow', new fabric.Shadow({ color: 'rgba(255,0,0,0.8)', blur: 10 }));
-            
             canvas.add(guideMarker);
             
-            // 遞迴執行動畫
             function animateSegment(index) {
                 if (index >= routePoints.length - 1) {
-                    // 動畫結束，移除標記或停在終點
-                    // canvas.remove(guideMarker); 
+                    // 動畫結束
+                    if (isRecording && mediaRecorder && mediaRecorder.state !== 'inactive') {
+                        // 如果是錄影模式，停止錄影
+                        mediaRecorder.stop();
+                    }
                     return;
                 }
-
                 const start = routePoints[index];
                 const end = routePoints[index+1];
-                
-                // 計算距離以決定速度 (保持等速)
                 const distance = Math.sqrt(Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2));
-                const duration = distance * 5; // 速度係數，數字越大越慢
+                const duration = distance * 5; 
 
-                guideMarker.animate({
-                    left: end.x,
-                    top: end.y
-                }, {
+                guideMarker.animate({ left: end.x, top: end.y }, {
                     duration: duration,
                     onChange: canvas.renderAll.bind(canvas),
-                    onComplete: function() {
-                        animateSegment(index + 1);
-                    },
+                    onComplete: function() { animateSegment(index + 1); },
                     easing: fabric.util.ease.linear
                 });
             }
-
             animateSegment(0);
-            addLog("路線", "播放路徑導覽");
+            if(!isRecording) addLog("路線", "播放路徑導覽");
         }
 
         // ==========================================
-        // 2. 圖片匯入與檔案匯入 (維持自動適應邏輯)
+        // 2. 圖片匯入與檔案匯入 (維持不變)
         // ==========================================
         const imgLoader = document.getElementById('imgLoader');
         if (imgLoader) {
@@ -532,8 +548,6 @@
                         canvas.setWidth(imgObj.width * scale);
                         canvas.setHeight(imgObj.height * scale);
                         canvas.setBackgroundImage(imgInstance, canvas.renderAll.bind(canvas));
-                        
-                        // 切換圖片時清除舊路線
                         clearRoute();
                         addLog("系統", "已匯入平面圖");
                     }
@@ -554,7 +568,6 @@
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(text, 'text/html');
                     const scriptTag = doc.getElementById('saved-data');
-
                     if (scriptTag && scriptTag.textContent.trim() !== "") {
                         try {
                             const savedData = JSON.parse(scriptTag.textContent);
@@ -566,20 +579,13 @@
                                         canvas.setWidth(bg.width * bg.scaleX);
                                         canvas.setHeight(bg.height * bg.scaleY);
                                     }
-                                    
-                                    // 嘗試恢復路線的點位資料 (如果存檔有包含)
-                                    // 注意：Fabric loadFromJSON 會自動恢復 Polyline 物件，但 routePoints 陣列需要重新抓取
                                     const objects = canvas.getObjects();
                                     objects.forEach(obj => {
                                         if (obj.customType === 'route' && obj.points) {
                                             activeRouteLine = obj;
-                                            // 轉換點位座標回絕對座標 (因為 Polyline 內部是相對的)
-                                            // 這裡簡化處理：直接讓使用者重新畫，或者只作為靜態顯示
-                                            // 若要支援編輯舊路線較複雜，這裡僅支援"顯示"存檔的路線
                                             obj.selectable = false;
                                         }
                                     });
-                                    
                                     canvas.renderAll();
                                     addLog("系統", "已成功讀取外部存檔");
                                 });
@@ -593,7 +599,7 @@
         }
 
         // ==========================================
-        // 3. 其他基礎功能 (篩選、拖曳、編輯、PDF)
+        // 3. 其他基礎功能
         // ==========================================
         document.querySelectorAll('.filter-cb').forEach(cb => {
             cb.addEventListener('change', updateVisibility);
@@ -659,7 +665,6 @@
             document.getElementById('customLabel').value = ""; document.getElementById('customNote').value = "";
         }
 
-        // 編輯相關
         const editPanel = document.getElementById('edit-panel');
         const editLabelInput = document.getElementById('editLabelInput');
         const editNoteInput = document.getElementById('editNoteInput');
@@ -717,10 +722,8 @@
         window.exportToPDF = async function() {
             const { jsPDF } = window.jspdf;
             const container = document.getElementById('pdf-temp-container');
-            
-            // 清除選取並渲染，確保截圖乾淨
             canvas.discardActiveObject();
-            if (guideMarker) canvas.remove(guideMarker); // 匯出時移除紅色導覽點
+            if (guideMarker) canvas.remove(guideMarker); 
             canvas.requestRenderAll();
             
             const canvasImgData = canvas.toDataURL({ format: 'png', multiplier: 2 });
@@ -803,7 +806,6 @@
             addLog("系統", "已匯出網頁檔案");
         }
 
-        // 自動讀取存檔
         const dataScript = document.getElementById('saved-data');
         if (dataScript && dataScript.textContent.trim() !== "") {
             try {
@@ -816,6 +818,13 @@
                             canvas.setWidth(bg.width * bg.scaleX);
                             canvas.setHeight(bg.height * bg.scaleY);
                         }
+                        const objects = canvas.getObjects();
+                        objects.forEach(obj => {
+                            if (obj.customType === 'route' && obj.points) {
+                                activeRouteLine = obj;
+                                obj.selectable = false;
+                            }
+                        });
                         canvas.renderAll();
                         addLog("系統", "已成功讀取舊檔紀錄");
                     });
